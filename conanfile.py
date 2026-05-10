@@ -1,7 +1,9 @@
 import os
 
 from conan import ConanFile
+from conan.errors import ConanException
 from conan.tools.files import copy, rm
+from conan.tools.scm import Git
 
 
 class MorpheusConan(ConanFile):
@@ -9,6 +11,19 @@ class MorpheusConan(ConanFile):
     package_type = "application"
 
     settings = "os", "arch", "compiler", "build_type"
+
+    def set_version(self):
+        if self.version:
+            return
+
+        git = Git(self, self.recipe_folder)
+        try:
+            tag = git.run("describe --tags --exact-match HEAD").strip()
+        except ConanException as exc:
+            raise ConanException("Cannot infer Morpheus version: checkout is not exactly on a Git tag. "
+                                 "Check out a tag like v0.0.1 or pass --version explicitly.") from exc
+
+        self.version = tag[1:] if tag.startswith("v") else tag
 
     def package_id(self):
         self.info.settings.compiler.rm_safe("cppstd")

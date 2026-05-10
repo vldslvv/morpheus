@@ -63,7 +63,8 @@ local Conan cache; the package is not published to a Conan registry by default.
 
 To create the package from a checkout:
 ```
-conan create . --version=0.1 --build=missing --no-remote
+git checkout v0.0.1
+conan create . --build=missing --no-remote
 ```
 
 For a consuming project that wants to pull this repository from GitHub without a
@@ -71,8 +72,8 @@ Conan registry, pin a commit and bootstrap the package before installing the
 consumer project:
 ```
 git clone https://github.com/vldslvv/morpheus.git third_party/morpheus
-git -C third_party/morpheus checkout <pinned-commit>
-conan create third_party/morpheus --version=0.1 --build=missing --no-remote
+git -C third_party/morpheus checkout v0.0.1
+conan create third_party/morpheus --build=missing --no-remote
 conan install . --build=missing
 ```
 
@@ -80,10 +81,10 @@ The consuming project's `conanfile.py` can then declare Morpheus as both a
 runtime dependency and a build-time tool:
 ```python
 def requirements(self):
-    self.requires("morpheus/0.1")
+    self.requires("morpheus/0.0.1")
 
 def build_requirements(self):
-    self.tool_requires("morpheus/0.1")
+    self.tool_requires("morpheus/0.0.1")
 ```
 
 The Conan package exposes `cruncher` in its public `bin/` directory and sets
