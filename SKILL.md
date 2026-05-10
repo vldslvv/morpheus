@@ -5,7 +5,7 @@ description: Compile, install, build stem libraries, create the Conan package, a
 
 # Morpheus Build And Run
 
-This repository is an old C project. The root `Makefile` is the preferred entry point. It wraps the legacy lowercase makefiles under `src/` and `stemlib/`, and centralizes the compiler flags passed to those makefiles.
+This repository is an old C project with a native CMake build. The root `Makefile` is a compatibility wrapper around CMake for common build, test, run, and install targets.
 
 The repository also has a Conan 2 recipe. The Conan package is an application package: it exposes `cruncher` as the public executable, packages Latin/Greek stem data, and sets `MORPHLIB` in Conan build/run environments.
 
@@ -13,10 +13,17 @@ Always run commands from the project root unless a step explicitly says otherwis
 
 ## Quick Commands
 
-Build the C tools, install them into repo-local `bin/`, and build both Latin and Greek stem libraries:
+Build the C tools and generated Latin/Greek stem libraries:
 
 ```sh
 make
+```
+
+The equivalent direct CMake flow is:
+
+```sh
+cmake -S . -B build/cmake -DCMAKE_BUILD_TYPE=Release
+cmake --build build/cmake
 ```
 
 Run all smoke tests:
@@ -60,7 +67,7 @@ conan create . --build=missing --no-remote
 Latin:
 
 ```sh
-echo "firmamenti" | MORPHLIB=stemlib bin/cruncher -L
+echo "firmamenti" | MORPHLIB=build/cmake/stemlib build/cmake/bin/cruncher -L
 ```
 
 Expected important output substring:
@@ -78,7 +85,7 @@ Typical full analysis line:
 Greek:
 
 ```sh
-echo "lo/gos" | MORPHLIB=stemlib bin/cruncher
+echo "lo/gos" | MORPHLIB=build/cmake/stemlib build/cmake/bin/cruncher
 ```
 
 Expected important output substring:
@@ -95,33 +102,30 @@ Typical full analysis line:
 
 ## What The Root Makefile Does
 
-`make build` runs:
+`make build` configures and builds the CMake project:
 
 ```sh
-make -C src all CFLAGS="$SRC_CFLAGS"
+cmake -S . -B build/cmake -DCMAKE_BUILD_TYPE=Release
+cmake --build build/cmake
 ```
 
-`make install` runs:
+`make install` installs the CMake project into `PREFIX`, which defaults to the repository root:
 
 ```sh
-make -C src install CFLAGS="$SRC_CFLAGS"
+cmake --install build/cmake --prefix "$PREFIX"
 ```
 
-This creates or updates the repo-local `bin/` directory. Important tools copied there include `cruncher`, `buildend`, `buildword`, `indendtables`, `buildderiv`, `indderivtables`, `indexnoms`, `indexvbs`, and `do_conj`.
+The installed layout is `bin/cruncher`, private helpers under `libexec/morpheus`, and stem data under `res/stemlib`.
 
-`make latin` runs the Latin stem-library build with `bin/` on `PATH`:
+`make latin` and `make greek` are compatibility aliases for the default CMake build. Generated stem data lives under:
 
 ```sh
-PATH="$PWD/bin:$PATH" MORPHLIB="$PWD/stemlib" make -C stemlib/Latin all CFLAGS="$STEM_CFLAGS"
+build/cmake/stemlib
 ```
 
-`make greek` runs the Greek stem-library build with `bin/` on `PATH` and forces old C syntax support for helper programs:
+The CMake build still preserves old C compatibility flags, including GNU89 for the Greek stem helper programs.
 
-```sh
-PATH="$PWD/bin:$PATH" MORPHLIB="$PWD/stemlib" make -C stemlib/Greek all CFLAGS="$GREEK_STEM_CFLAGS"
-```
-
-Do not remove `-std=gnu89` from `GREEK_STEM_CFLAGS` in the root `Makefile`. Some Greek helper programs use pre-C99 implicit declarations and fail under `gnu99`.
+Do not remove the GNU89 handling for those helper programs. Some use pre-C99 implicit declarations and fail under `gnu99`.
 
 ## Conan Packaging
 
@@ -214,7 +218,7 @@ If a stem-library build says a tool is missing, such as:
 buildend: No such file or directory
 ```
 
-then `bin/` is not on `PATH`, or `make install` has not been run. Use the root target:
+then the CMake-built helper tools are not on `PATH` for the stem generation step. Use the root target:
 
 ```sh
 make latin
@@ -238,16 +242,16 @@ or manually:
 PATH="$PWD/bin:$PATH" MORPHLIB="$PWD/stemlib" make -C stemlib/Greek all CFLAGS="-O2 -std=gnu89"
 ```
 
-If `make install` cannot create `bin/` because of a filesystem sandbox error, request permission to write inside the project root and rerun:
+If `make install` cannot create files under the install prefix because of a filesystem sandbox error, request permission to write to that prefix and rerun:
 
 ```sh
 make install
 ```
 
-If `bin/cruncher logos` fails with a message about `logos.words`, that is because positional arguments are interpreted as file prefixes. Use stdin for simple checks:
+If `cruncher logos` fails with a message about `logos.words`, that is because positional arguments are interpreted as file prefixes. Use stdin for simple checks:
 
 ```sh
-echo "lo/gos" | MORPHLIB=stemlib bin/cruncher
+echo "lo/gos" | MORPHLIB=build/cmake/stemlib build/cmake/bin/cruncher
 ```
 
 If `conan create . --build=missing --no-remote` fails while inferring the version, confirm the checkout is exactly on a Git tag:
@@ -279,7 +283,7 @@ Treat the build as successful if the command exits with status 0 and the smoke t
 
 ## File Change Hygiene
 
-The build creates many generated and ignored artifacts under `bin/`, `src/`, and `stemlib/`.
+The normal CMake build creates generated and ignored artifacts under `build/`.
 
 Before reporting completion, check:
 
@@ -287,4 +291,4 @@ Before reporting completion, check:
 git status --short
 ```
 
-If tracked stemlib data changes unexpectedly during a build, inspect the diff. Do not keep unrelated generated churn unless the user explicitly asked to update generated data. The intended source entry point for agents is the root `Makefile`; avoid scattering build-flag edits through legacy lowercase makefiles.
+If tracked stemlib data changes unexpectedly during a build, inspect the diff. Do not keep unrelated generated churn unless the user explicitly asked to update generated data. The intended source entry point for agents is CMake, with the root `Makefile` available as a wrapper; avoid scattering build-flag edits through legacy lowercase makefiles.

@@ -2,7 +2,8 @@ import os
 
 from conan import ConanFile
 from conan.errors import ConanException
-from conan.tools.files import copy, rm
+from conan.tools.cmake import CMake, CMakeToolchain, cmake_layout
+from conan.tools.files import copy
 from conan.tools.scm import Git
 
 
@@ -29,38 +30,30 @@ class MorpheusConan(ConanFile):
         self.info.settings.compiler.rm_safe("cppstd")
         self.info.settings.compiler.rm_safe("libcxx")
 
+    def layout(self):
+        cmake_layout(self)
+
+    def generate(self):
+        tc = CMakeToolchain(self)
+        tc.generate()
+
     def export_sources(self):
         excludes = ["bin/*", "*.o", "*.a"]
+        copy(self, "CMakeLists.txt", self.recipe_folder, self.export_sources_folder)
+        copy(self, "*", os.path.join(self.recipe_folder, "cmake"), os.path.join(self.export_sources_folder, "cmake"))
         copy(self, "Makefile", self.recipe_folder, self.export_sources_folder)
         copy(self, "README.md", self.recipe_folder, self.export_sources_folder)
         copy(self, "*", os.path.join(self.recipe_folder, "src"), os.path.join(self.export_sources_folder, "src"), excludes=excludes)
         copy(self, "*", os.path.join(self.recipe_folder, "stemlib"), os.path.join(self.export_sources_folder, "stemlib"), excludes=excludes)
 
     def build(self):
-        self.run(f'make -C "{self.source_folder}"')
+        cmake = CMake(self)
+        cmake.configure()
+        cmake.build()
 
     def package(self):
-        bin_src = os.path.join(self.source_folder, "bin")
-        stemlib_src = os.path.join(self.source_folder, "stemlib")
-
-        copy(self, "cruncher", src=bin_src, dst=os.path.join(self.package_folder, "bin"), keep_path=False)
-
-        libexec_dst = os.path.join(self.package_folder, "libexec", "morpheus")
-        copy(self, "*", src=bin_src, dst=libexec_dst, keep_path=False)
-        rm(self, "cruncher", libexec_dst)
-        rm(self, "*.a", libexec_dst)
-
-        res_dst = os.path.join(self.package_folder, "res", "stemlib")
-        for language in ("Latin", "Greek"):
-            language_src = os.path.join(stemlib_src, language)
-            language_dst = os.path.join(res_dst, language)
-            copy(self, "*", src=os.path.join(language_src, "rule_files"), dst=os.path.join(language_dst, "rule_files"))
-            copy(self, "*", src=os.path.join(language_src, "steminds"), dst=os.path.join(language_dst, "steminds"))
-            copy(self, "*", src=os.path.join(language_src, "endtables", "basics"), dst=os.path.join(language_dst, "endtables", "basics"))
-            copy(self, "*", src=os.path.join(language_src, "endtables", "indices"), dst=os.path.join(language_dst, "endtables", "indices"))
-            copy(self, "*", src=os.path.join(language_src, "endtables", "out"), dst=os.path.join(language_dst, "endtables", "out"))
-            copy(self, "*", src=os.path.join(language_src, "derivs", "indices"), dst=os.path.join(language_dst, "derivs", "indices"))
-            copy(self, "*", src=os.path.join(language_src, "derivs", "out"), dst=os.path.join(language_dst, "derivs", "out"))
+        cmake = CMake(self)
+        cmake.install()
 
     def package_info(self):
         stemlib = os.path.join(self.package_folder, "res", "stemlib")

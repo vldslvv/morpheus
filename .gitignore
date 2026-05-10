@@ -81,3 +81,6 @@ stemlib/Greek/stemsrc/dopnom
 
 # Debug files
 *.dSYM/
+
+# CMake build
+build/

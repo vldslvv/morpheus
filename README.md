@@ -6,9 +6,8 @@ Morpheus parser code.
 Fork notes
 ----------
 
-This fork adds a root `Makefile` as the preferred build entry point. It keeps
-the legacy lowercase makefiles under `src/` and `stemlib/` unchanged, while
-passing the compiler flags they need from the repository root.
+This fork uses CMake as the preferred build entry point. The root `Makefile`
+is kept as a compatibility wrapper around the CMake build.
 
 The root build defaults to GNU99 for the C tools and uses GNU89 only for the
 Greek stem helper programs, which rely on old implicit-declaration behavior.
@@ -16,43 +15,49 @@ Greek stem helper programs, which rely on old implicit-declaration behavior.
 Compiling and installing morpheus
 ---------------------------------
 
-By default morpheus installs into bin/. From the repository root:
+From the repository root:
 ```
-  make build
-  make install
-```
-
-Or build the tools, install them, and generate both Latin and Greek stem
-libraries:
-```
-  make
+  cmake -S . -B build/cmake -DCMAKE_BUILD_TYPE=Release
+  cmake --build build/cmake
 ```
 
-The legacy flow still works if you need to run it manually:
+The compatibility wrapper still supports the old root commands:
 ```
-  cd src
   make
-  make install
+  make test
 ```
+
+Install into a prefix:
+```
+  cmake --install build/cmake --prefix /path/to/prefix
+```
+
+The install layout is:
+```
+  bin/cruncher
+  libexec/morpheus/<private helper tools>
+  res/stemlib/Latin/<runtime data>
+  res/stemlib/Greek/<runtime data>
+```
+
 Compiling a stem library
 ------------------------
 
-From the repository root:
+The default CMake build generates the Latin and Greek stem libraries in the
+build tree:
+```
+  build/cmake/stemlib
+```
+
+The compatibility targets remain available:
 ```
   make latin
   make greek
 ```
-
-The legacy manual flow is:
-```
-  cd stemlib/Latin
-  export PATH=$PATH:../../bin
-  MORPHLIB=.. make
-```
 Running the cruncher
 --------------------
 ```
-MORPHLIB=stemlib bin/cruncher < wordlist > crunched
+MORPHLIB=build/cmake/stemlib build/cmake/bin/cruncher < wordlist > crunched
 ```
 
 Using from Conan
@@ -123,7 +128,7 @@ conan create third_party/morpheus --build=missing --no-remote
 conan install . --build=missing
 ```
 
-`conan create` builds Morpheus from source and stores `morpheus/0.0.1` in the
+`conan create` builds Morpheus with CMake and stores `morpheus/0.0.1` in the
 local Conan cache. The consumer's normal `conan install` can then resolve
 `self.requires("morpheus/0.0.1")` from that cache.
 
