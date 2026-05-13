@@ -39,13 +39,23 @@ run-latin: build
 run-greek: build
 	printf 'lo/gos\n' | MORPHLIB="$(BUILD_DIR)/stemlib" "$(BUILD_DIR)/bin/cruncher" -L
 
-smoke-test: test
+smoke-test: smoke-test-latin smoke-test-greek
 
 smoke-test-latin: build
-	$(CTEST) --test-dir "$(BUILD_DIR)" -R smoke-latin --output-on-failure
+	@out="$(BUILD_DIR)/smoke-latin.out"; \
+	printf 'firmamenti\ncaelum\npuella\nservus\n' | MORPHLIB="$(BUILD_DIR)/stemlib" "$(BUILD_DIR)/bin/cruncher" -L > "$$out"; \
+	grep -q 'firmamentum' "$$out"; \
+	grep -q 'caelum#1' "$$out"; \
+	grep -q 'puella' "$$out"; \
+	grep -q 'servus#1' "$$out"
 
 smoke-test-greek: build
-	$(CTEST) --test-dir "$(BUILD_DIR)" -R smoke-greek --output-on-failure
+	@out="$(BUILD_DIR)/smoke-greek.out"; \
+	printf 'lo/gos\na)/nqrwpos\nqeo/s\nmh=nin\n' | MORPHLIB="$(BUILD_DIR)/stemlib" "$(BUILD_DIR)/bin/cruncher" > "$$out"; \
+	grep -q 'lo/gos  masc nom sg' "$$out"; \
+	grep -q 'a)/nqrwpos  masc nom sg' "$$out"; \
+	grep -q 'qeo/s  masc nom sg' "$$out"; \
+	grep -q 'mh=nis  fem acc sg' "$$out"
 
 test: build
 	$(CTEST) --test-dir "$(BUILD_DIR)" --output-on-failure

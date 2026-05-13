@@ -52,98 +52,177 @@ function(morpheus_add_flex_executable target source)
     target_link_libraries(${target} PRIVATE ${FLEX_LIBRARIES})
 endfunction()
 
-function(morpheus_glob_c_sources out_var dir)
-    file(GLOB sources CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/${dir}/*.c")
+# Keep the historical source layout intact. These lists mirror the old
+# makefile archive object lists instead of globbing whole directories.
+# Many original directories intentionally mix library members, command
+# mains, tests, experiments, and duplicate/backup files. Preserving that
+# layout keeps the project recognizable, while explicit archive-member
+# lists make the modern CMake build deterministic and document which old
+# files belonged to each library.
+function(morpheus_sources_from_objects out_var dir)
+    set(sources)
+    foreach(object ${ARGN})
+        string(REGEX REPLACE "\\.o$" ".c" source "${object}")
+        list(APPEND sources "${CMAKE_SOURCE_DIR}/${dir}/${source}")
+    endforeach()
     set(${out_var} ${sources} PARENT_SCOPE)
 endfunction()
 
-function(morpheus_exclude_sources var)
-    foreach(source ${ARGN})
-        list(REMOVE_ITEM ${var} "${CMAKE_SOURCE_DIR}/${source}")
-    endforeach()
-    set(${var} ${${var}} PARENT_SCOPE)
-endfunction()
-
-morpheus_glob_c_sources(GREEKLIB_SOURCES src/greeklib)
-morpheus_exclude_sources(GREEKLIB_SOURCES
-    src/greeklib/io.c
-    src/greeklib/x.c)
+# src/greeklib/makefile built greeklib.a from GRKLIBOBJ; io.c and x.c were
+# local utilities/tests, so they are intentionally not part of this archive.
+morpheus_sources_from_objects(GREEKLIB_SOURCES src/greeklib
+    Fclose.o
+    addaccent.o
+    addbreath.o
+    aspirate.o
+    beta_tolower.o
+    binlook.o
+    checkaccent.o
+    cinsert.o
+    do_dissim.o
+    endsinstr.o
+    getaccent.o
+    getaccp.o
+    getbreath.o
+    getquantity.o
+    getsyll.o
+    gkstrlen.o
+    hasaccent.o
+    hasdiaer.o
+    hasquant.o
+    isblank.o
+    isdiphth.o
+    issubstring.o
+    keyio.o
+    longbyposition.o
+    naccents.o
+    normucase.o
+    nsylls.o
+    quantprim.o
+    shortanalog.o
+    standalpha.o
+    standword.o
+    stripacc.o
+    stripacute.o
+    stripbreath.o
+    stripchar.o
+    stripdiaer.o
+    stripmeta.o
+    stripquant.o
+    stripstemsep.o
+    stripzeroend.o
+    strsqz.o
+    subchar.o
+    vaxwords.o
+    sprntGkflags.o
+    xstrings.o
+    zap2ndbreath.o)
 morpheus_add_library(greeklib ${GREEKLIB_SOURCES})
 
-morpheus_glob_c_sources(MORPHLIB_SOURCES src/morphlib)
-morpheus_exclude_sources(MORPHLIB_SOURCES
-    "src/morphlib/Copy of beta2smarta.c"
-    src/morphlib/betasort.c
-    src/morphlib/msfgetfile.c
-    src/morphlib/testmain.c
-    src/morphlib/tmain.c)
+# src/morphlib/makefile built morphlib.a from MORPHOBJ. Other files in this
+# directory are standalone tools, test mains, or preserved duplicate sources.
+morpheus_sources_from_objects(MORPHLIB_SOURCES src/morphlib
+    adddomain.o
+    addninfix.o
+    antepenform.o
+    augment.o
+    beta2rtf.o
+    beta2smarta.o
+    cmpend.o
+    conjstem.o
+    endio.o
+    errormess.o
+    fixacc.o
+    gkstring.o
+    gktoasc.o
+    indkeys.o
+    is_thirdmono.o
+    loadeuph.o
+    markstem.o
+    morphflags.o
+    morphkeys.o
+    morphpath.o
+    morphstrcmp.o
+    new_val.o
+    nextkey.o
+    numovable.o
+    penultform.o
+    pres_redup.o
+    preverb.o
+    preverb2.o
+    preverb3.o
+    retrentry.o
+    setlang.o
+    smk2beta.o
+    sprntGkflags.o
+    standphon.o
+    trimwhite.o
+    ultform.o
+    ulttakescirc.o)
 morpheus_add_library(morphlib ${MORPHLIB_SOURCES})
 target_link_libraries(morphlib PUBLIC greeklib)
 
-morpheus_glob_c_sources(GKENDS_SOURCES src/gkends)
-morpheus_exclude_sources(GKENDS_SOURCES
-    src/gkends/countendmain.c
-    src/gkends/expendmain.c
-    src/gkends/expsuffmain.c
-    src/gkends/expwordmain.c
-    src/gkends/imain.c
-    src/gkends/indexstems.c
-    src/gkends/smain.c
-    src/gkends/x.c)
+# src/gkends/makefile built gkends.a from ENDOBJ. The exp*/i*/s* main files
+# below remain separate executables, matching the legacy build.
+morpheus_sources_from_objects(GKENDS_SOURCES src/gkends
+    acccompos.o
+    checkforbreath.o
+    contract.o
+    countendtables.o
+    endindex.o
+    euphend.o
+    expendtable.o
+    fixeta.o
+    getcurrend.o
+    indexendtables.o
+    lcontr.o
+    merge.o
+    mkend.o
+    nextsufftab.o
+    retrends.o
+    stor.o)
 morpheus_add_library(gkends ${GKENDS_SOURCES})
 target_link_libraries(gkends PUBLIC morphlib greeklib)
 
-morpheus_glob_c_sources(GKDICT_SOURCES src/gkdict)
-morpheus_exclude_sources(GKDICT_SOURCES
-    src/gkdict/indcomps.c
-    src/gkdict/index.dict.c
-    src/gkdict/indexnoms.main.c
-    src/gkdict/indexvbs.main.c
-    src/gkdict/newlats.c
-    src/gkdict/newlems.c
-    src/gkdict/newlems2.c
-    src/gkdict/x.c
-    src/gkdict/xderivio.c)
+# src/gkdict/makefile built gkdict.a from DICTOBJ. Indexing and conversion
+# programs in the same directory are command-line tools, not archive members.
+morpheus_sources_from_objects(GKDICT_SOURCES src/gkdict
+    dictio.o
+    derivio.o
+    compnoun.o)
 morpheus_add_library(gkdict ${GKDICT_SOURCES})
-target_compile_definitions(gkdict PRIVATE
+set(GKDICT_COMPILE_DEFINITIONS
     COMPHEADS="nom.heads"
     NOMLIST="nommorph"
     VBLIST="vbmorph")
+target_compile_definitions(gkdict PRIVATE ${GKDICT_COMPILE_DEFINITIONS})
 target_link_libraries(gkdict PUBLIC gkends morphlib greeklib)
 
-morpheus_glob_c_sources(GENER_SOURCES src/gener)
-morpheus_exclude_sources(GENER_SOURCES
-    src/gener/conjmain.c
-    src/gener/genermain.c
-    src/gener/gensimpmain.c
-    src/gener/genstmain.c
-    src/gener/getdefs.c
-    src/gener/sampleform.c
-    src/gener/stypemain.c)
+# src/gener/makefile built gener.a from GENEROBJ. The similarly named gener
+# executable is assembled later from its main plus helper sources.
+morpheus_sources_from_objects(GENER_SOURCES src/gener
+    genwd.o)
 morpheus_add_library(gener ${GENER_SOURCES})
 target_link_libraries(gener PUBLIC gkends morphlib greeklib)
 
-morpheus_glob_c_sources(ANAL_SOURCES src/anal)
-morpheus_exclude_sources(ANAL_SOURCES
-    "src/anal/Copy of checkstring.c"
-    src/anal/GetSel.c
-    src/anal/MorphWind.c
-    src/anal/betamorph.c
-    src/anal/chckcmpstem.c
-    src/anal/deverb.c
-    src/anal/digmain.c
-    src/anal/digstring.c
-    src/anal/docrasis.c
-    src/anal/findbase.c
-    src/anal/lcnt.c
-    src/anal/lemma_voice.c
-    src/anal/multstdiomorph.c
-    src/anal/nextgkword.c
-    src/anal/np_scan.c
-    src/anal/proclems.c
-    src/anal/propname.c
-    src/anal/seek_compound.c
-    src/anal/stdiomorph.c)
+# src/anal/makefile built anal.a from ANALOBJ. Analyzer entry points such as
+# stdiomorph.c, propname.c, findbase.c, and deverb.c stay as executables.
+morpheus_sources_from_objects(ANAL_SOURCES src/anal
+    checkcrasis.o
+    checkdict.o
+    checkgenwds.o
+    checkhalf1.o
+    checkindecl.o
+    checkirreg.o
+    checknom.o
+    checkpreverb.o
+    checkstem.o
+    checkstring.o
+    checkverb.o
+    checkword.o
+    dictstems.o
+    prntanal.o
+    prvb.o)
 morpheus_add_library(anal ${ANAL_SOURCES})
 target_link_libraries(anal PUBLIC gener gkends gkdict morphlib greeklib)
 
@@ -165,10 +244,16 @@ target_link_libraries(buildderiv PRIVATE gkends morphlib greeklib)
 morpheus_add_executable(indexcomps src/gkdict/indcomps.c)
 target_link_libraries(indexcomps PRIVATE morphlib greeklib)
 
-morpheus_add_executable(indexnoms src/gkdict/indexnoms.main.c)
+morpheus_add_executable(indexnoms
+    src/gkdict/indexnoms.main.c
+    src/gkdict/indexstems.c)
+target_compile_definitions(indexnoms PRIVATE ${GKDICT_COMPILE_DEFINITIONS})
 target_link_libraries(indexnoms PRIVATE gkdict morphlib greeklib)
 
-morpheus_add_executable(indexvbs src/gkdict/indexvbs.main.c)
+morpheus_add_executable(indexvbs
+    src/gkdict/indexvbs.main.c
+    src/gkdict/indexstems.c)
+target_compile_definitions(indexvbs PRIVATE ${GKDICT_COMPILE_DEFINITIONS})
 target_link_libraries(indexvbs PRIVATE gkdict morphlib greeklib)
 
 morpheus_add_executable(newlems src/gkdict/newlems.c)
